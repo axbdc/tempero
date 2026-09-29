@@ -19,6 +19,7 @@ import { getRecipe, imageUrl } from '../data'
 import { formatClock, remainingOf, useTimers } from '../lib/timers'
 import { formatStepTime } from './RecipePage'
 import { NotFound } from './NotFound'
+import { ServingsStepper, useServings } from '../components/ServingsStepper'
 
 function useWakeLock() {
   useEffect(() => {
@@ -45,6 +46,7 @@ export function CookMode() {
   const { slug = '' } = useParams()
   const recipe = getRecipe(slug)
   const navigate = useNavigate()
+  const sv = useServings(recipe)
   const [idx, setIdx] = useState(-1) // -1 = preparar ingredientes, steps.length = fim
   const [showIngredients, setShowIngredients] = useState(false)
   const [checked, setChecked] = useState<Set<string>>(new Set())
@@ -91,7 +93,7 @@ export function CookMode() {
 
   const ingredientList = (
     <div className="space-y-5">
-      {recipe.ingredients.map((g, gi) => (
+      {sv.ingredients.map((g, gi) => (
         <div key={gi}>
           {g.group && <h3 className="mb-1 text-xs font-bold uppercase tracking-wider text-herb-600">{g.group}</h3>}
           <ul className="divide-y divide-line/70">
@@ -137,7 +139,7 @@ export function CookMode() {
       <header className="shrink-0 border-b border-line/70 bg-paper">
         <div className="mx-auto flex h-16 max-w-4xl items-center gap-3 px-4">
           <Link
-            to={`/receita/${recipe.slug}`}
+            to={`/receita/${recipe.slug}${sv.query}`}
             className="grid h-10 w-10 place-items-center rounded-full hover:bg-herb-50"
             aria-label="Sair do modo cozinhar"
           >
@@ -191,7 +193,19 @@ export function CookMode() {
               <h1 className="mt-1 font-display text-3xl font-semibold leading-tight text-herb-900 sm:text-4xl">
                 Junta tudo na bancada
               </h1>
-              <p className="mt-2 text-muted">Marca cada ingrediente à medida que o tiras do armário. {recipe.servings}.</p>
+              <div className="mt-5 flex flex-col gap-3 rounded-card bg-paper p-5 ring-1 ring-line/60 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-bold">Para quantas pessoas?</p>
+                  <p className="text-sm text-muted">As quantidades ajustam-se sozinhas.</p>
+                </div>
+                <ServingsStepper count={sv.count} unit={sv.base.unit} onChange={sv.setCount} size="lg" />
+              </div>
+              {sv.factor !== 1 && (
+                <p className="mt-2 text-xs leading-relaxed text-herb-700">
+                  Receita original para {sv.baseLabel}. Os tempos mantêm-se; quantidades escritas nos passos referem-se ao original.
+                </p>
+              )}
+              <p className="mt-6 text-muted">Marca cada ingrediente à medida que o tiras do armário.</p>
               <div className="mt-6 rounded-card bg-paper p-5 ring-1 ring-line/60">{ingredientList}</div>
             </>
           )}

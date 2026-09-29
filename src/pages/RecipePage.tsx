@@ -5,6 +5,7 @@ import { byCategory, formatTime, getCategory, getRecipe, imageUrl } from '../dat
 import { FavoriteButton } from '../components/FavoriteButton'
 import { RecipeCard } from '../components/RecipeCard'
 import { NotFound } from './NotFound'
+import { ServingsStepper, useServings } from '../components/ServingsStepper'
 
 export function formatStepTime(min: number) {
   if (min < 1) return `${Math.round(min * 60)} s`
@@ -22,6 +23,7 @@ export function RecipePage() {
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [shared, setShared] = useState(false)
   const navigate = useNavigate()
+  const sv = useServings(recipe)
 
   if (!recipe) return <NotFound />
   const cat = getCategory(recipe.category)!
@@ -114,14 +116,14 @@ export function RecipePage() {
                 <dt className="flex justify-center text-herb-600">
                   <Users size={19} />
                 </dt>
-                <dd className="mt-1.5 text-sm font-bold leading-tight">{recipe.servings.split(' (')[0]}</dd>
+                <dd className="mt-1.5 text-sm font-bold leading-tight">{sv.label}</dd>
                 <dd className="text-[11px] text-muted">Doses</dd>
               </div>
             </dl>
 
             <div className="mt-6 flex items-center gap-3">
               <Link
-                to={`/receita/${recipe.slug}/cozinhar`}
+                to={`/receita/${recipe.slug}/cozinhar${sv.query}`}
                 className="inline-flex h-14 flex-1 items-center justify-center gap-2.5 rounded-full bg-herb-700 px-7 text-base font-bold text-white shadow-lift transition hover:bg-herb-600 active:scale-[0.98] sm:flex-none"
               >
                 <Play size={19} className="fill-white" /> Começar a cozinhar
@@ -160,8 +162,16 @@ export function RecipePage() {
                 {checked.size}/{totalItems}
               </span>
             </div>
-            <p className="mt-0.5 text-sm text-muted">{recipe.servings}</p>
-            {recipe.ingredients.map((g, gi) => (
+            <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl bg-cream px-3 py-2">
+              <span className="text-sm font-semibold text-muted">Doses</span>
+              <ServingsStepper count={sv.count} unit={sv.base.unit} onChange={sv.setCount} />
+            </div>
+            {sv.factor !== 1 && (
+              <p className="mt-2 text-xs leading-relaxed text-herb-700">
+                Quantidades ajustadas para {sv.label}. A receita original é para {sv.baseLabel}; os tempos mantêm-se.
+              </p>
+            )}
+            {sv.ingredients.map((g, gi) => (
               <div key={gi} className="mt-4">
                 {g.group && <h3 className="mb-1 text-xs font-bold uppercase tracking-wider text-herb-600">{g.group}</h3>}
                 <ul className="divide-y divide-line/70">
@@ -268,7 +278,7 @@ export function RecipePage() {
           )}
 
           <Link
-            to={`/receita/${recipe.slug}/cozinhar`}
+            to={`/receita/${recipe.slug}/cozinhar${sv.query}`}
             className="mt-8 flex h-14 items-center justify-center gap-2.5 rounded-full bg-herb-700 text-base font-bold text-white transition hover:bg-herb-600"
           >
             <Play size={19} className="fill-white" /> Começar a cozinhar

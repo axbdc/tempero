@@ -2,6 +2,7 @@ import type { Category, CategoryId, Recipe } from './types'
 import { pequenoAlmoco, lanche } from './recipes-manha-lanche'
 import { almoco, jantar } from './recipes-almoco-jantar'
 import { petiscos } from './recipes-petiscos'
+import { photos } from './photos'
 
 export * from './types'
 
@@ -13,7 +14,11 @@ export const categories: Category[] = [
   { id: 'petiscos', label: 'Petiscos', short: 'Petiscar', description: 'Para partilhar à mesa.' },
 ]
 
-export const recipes: Recipe[] = [...pequenoAlmoco, ...lanche, ...almoco, ...jantar, ...petiscos]
+// As fotos vêm de photos.ts (sobrepõem o campo image/credit de cada receita)
+export const recipes: Recipe[] = [...pequenoAlmoco, ...lanche, ...almoco, ...jantar, ...petiscos].map((r) => ({
+  ...r,
+  ...photos[r.slug],
+}))
 
 export const getRecipe = (slug: string) => recipes.find((r) => r.slug === slug)
 export const getCategory = (id: CategoryId | string) => categories.find((c) => c.id === id)
