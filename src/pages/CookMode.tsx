@@ -14,12 +14,17 @@ import {
   RotateCcw,
   Timer,
   X,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
 } from 'lucide-react'
 import { getRecipe, imageUrl } from '../data'
 import { formatClock, remainingOf, useTimers } from '../lib/timers'
 import { formatStepTime } from './RecipePage'
 import { NotFound } from './NotFound'
 import { ServingsStepper, useServings } from '../components/ServingsStepper'
+import { speak, stopSpeaking, useVoiceCommands } from '../lib/voice'
 
 function useWakeLock() {
   useEffect(() => {
@@ -74,6 +79,33 @@ export function CookMode() {
     }
   }, [])
 
+  const current = recipe && idx >= 0 && idx < recipe.steps.length ? recipe.steps[idx] : null
+  const [voiceOn, setVoiceOn] = useState(false)
+  const [readOn, setReadOn] = useState(false)
+
+  const readStep = useCallback(() => {
+    if (!recipe) return
+    if (idx < 0) speak(`${recipe.title}. Antes de começar, junta os ingredientes na bancada.`)
+    else if (current) speak(`Passo ${idx + 1}. ${current.title}. ${current.text}`)
+    else speak('Terminado. Bom apetite!')
+  }, [recipe, idx, current])
+
+  useEffect(() => {
+    if (readOn) readStep()
+  }, [readOn, readStep])
+
+  useEffect(() => () => stopSpeaking(), [])
+
+  const voice = useVoiceCommands(voiceOn, (cmd) => {
+    if (cmd === 'next') go(1)
+    else if (cmd === 'prev') go(-1)
+    else if (cmd === 'repeat') readStep()
+    else if (cmd === 'ingredients') setShowIngredients(true)
+    else if (cmd === 'timer' && current?.minutes) start(idx, current.minutes)
+    else if (cmd === 'pause') pause(idx)
+    else if (cmd === 'stop') Object.entries(timers).forEach(([k, t]) => t.done && reset(Number(k)))
+  })
+
   if (!recipe) return <NotFound />
 
   const step = idx >= 0 && idx < total ? recipe.steps[idx] : null
@@ -105,7 +137,7 @@ export function CookMode() {
                   <button onClick={() => toggleIng(key)} className="flex w-full items-start gap-3 py-3 text-left" aria-pressed={on}>
                     <span
                       className={`mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-lg border-2 transition ${
-                        on ? 'border-herb-600 bg-herb-600 text-white' : 'border-line bg-white'
+                        on ? 'border-herb-600 bg-herb-600 text-white' : 'border-line bg-paper'
                       }`}
                     >
                       {on && <Check size={15} strokeWidth={3} />}
@@ -151,6 +183,29 @@ export function CookMode() {
               {idx < 0 ? 'Preparação' : idx >= total ? 'Concluído' : `Passo ${idx + 1} de ${total}`}
             </p>
           </div>
+          {voice.supported && (
+            <button
+              onClick={() => setVoiceOn((v) => !v)}
+              aria-pressed={voiceOn}
+              aria-label={voiceOn ? 'Desligar comandos de voz' : 'Ligar comandos de voz'}
+              title="Comandos de voz"
+              className={`grid h-10 w-10 place-items-center rounded-full transition ${voiceOn ? 'bg-tomato text-white' : 'hover:bg-herb-50'}`}
+            >
+              {voiceOn ? <Mic size={19} className="animate-pulse" /> : <MicOff size={19} />}
+            </button>
+          )}
+          <button
+            onClick={() => {
+              if (readOn) stopSpeaking()
+              setReadOn(!readOn)
+            }}
+            aria-pressed={readOn}
+            aria-label={readOn ? 'Parar leitura em voz alta' : 'Ler os passos em voz alta'}
+            title="Ler em voz alta"
+            className={`grid h-10 w-10 place-items-center rounded-full transition ${readOn ? 'bg-herb-700 text-white' : 'hover:bg-herb-50'}`}
+          >
+            {readOn ? <Volume2 size={19} /> : <VolumeX size={19} />}
+          </button>
           <button
             onClick={() => setShowIngredients(true)}
             className="inline-flex h-10 items-center gap-2 rounded-full bg-herb-50 px-4 text-sm font-bold text-herb-700 hover:bg-herb-100"
@@ -162,6 +217,12 @@ export function CookMode() {
           <div className="h-full bg-herb-500 transition-all duration-500" style={{ width: `${progress}%` }} />
         </div>
       </header>
+
+      {voiceOn && (
+        <div className="shrink-0 border-b border-line/70 bg-herb-50 px-4 py-2 text-center text-xs font-semibold text-herb-700">
+          {voice.listening ? 'A ouvir' : 'A ligar o microfone'}: diz "próximo", "anterior", "repetir", "temporizador", "pausa" ou "parar alarme"
+        </div>
+      )}
 
       {/* Temporizadores de outros passos */}
       {otherTimers.length > 0 && (

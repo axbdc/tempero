@@ -14,6 +14,12 @@
     <meta property="og:description" content="Receitas simples com modo cozinhar guiado e temporizadores." />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="/og.png" />
+    <script>
+      try {
+        var t = JSON.parse(localStorage.getItem('tempero:tema'))
+        if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t)
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

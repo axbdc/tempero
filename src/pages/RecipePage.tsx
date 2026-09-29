@@ -1,11 +1,28 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Check, ChefHat, Clock, Flame, Lightbulb, Play, Share2, Timer, Users } from 'lucide-react'
+import {
+  ArrowLeft,
+  CalendarPlus,
+  Check,
+  ChefHat,
+  Clock,
+  Flame,
+  Lightbulb,
+  Play,
+  Share2,
+  ShoppingBasket,
+  Timer,
+  Users,
+} from 'lucide-react'
 import { byCategory, formatTime, getCategory, getRecipe, imageUrl } from '../data'
 import { FavoriteButton } from '../components/FavoriteButton'
 import { RecipeCard } from '../components/RecipeCard'
 import { NotFound } from './NotFound'
 import { ServingsStepper, useServings } from '../components/ServingsStepper'
+import { nutrition } from '../data/nutrition'
+import { useShopping } from '../lib/shopping'
+import { DAYS, todayIndex, usePlan } from '../lib/plan'
+import { toast } from '../lib/toast'
 
 export function formatStepTime(min: number) {
   if (min < 1) return `${Math.round(min * 60)} s`
@@ -24,9 +41,13 @@ export function RecipePage() {
   const [shared, setShared] = useState(false)
   const navigate = useNavigate()
   const sv = useServings(recipe)
+  const shop = useShopping()
+  const planApi = usePlan()
+  const [planOpen, setPlanOpen] = useState(false)
 
   if (!recipe) return <NotFound />
   const cat = getCategory(recipe.category)!
+  const nut = nutrition[recipe.slug]
   const related = byCategory(recipe.category).filter((r) => r.slug !== recipe.slug).slice(0, 3)
   const totalItems = recipe.ingredients.reduce((n, g) => n + g.items.length, 0)
 
@@ -66,13 +87,13 @@ export function RecipePage() {
             <div className="absolute inset-x-0 top-0 flex items-center justify-between p-4 sm:hidden">
               <button
                 onClick={() => (window.history.state?.idx > 0 ? navigate(-1) : navigate('/'))}
-                className="grid h-10 w-10 place-items-center rounded-full bg-white/95 shadow-soft"
+                className="grid h-10 w-10 place-items-center rounded-full bg-paper/95 shadow-soft"
                 aria-label="Voltar"
               >
                 <ArrowLeft size={19} />
               </button>
               <div className="flex gap-2">
-                <button onClick={share} className="grid h-10 w-10 place-items-center rounded-full bg-white/95 shadow-soft" aria-label="Partilhar">
+                <button onClick={share} className="grid h-10 w-10 place-items-center rounded-full bg-paper/95 shadow-soft" aria-label="Partilhar">
                   <Share2 size={18} />
                 </button>
                 <FavoriteButton slug={recipe.slug} className="h-10 w-10" />
@@ -131,6 +152,43 @@ export function RecipePage() {
                 {shared ? <Check size={20} className="text-herb-600" /> : <Share2 size={20} />}
               </button>
               <FavoriteButton slug={recipe.slug} className="hidden h-14 w-14 ring-1 ring-line sm:grid" size={21} />
+            </div>
+            <div className="relative mt-3 flex flex-wrap gap-2">
+              <button
+                onClick={() => {
+                  const n = shop.addRecipe(recipe, sv.factor)
+                  toast(`${n} ingredientes adicionados à lista`)
+                }}
+                className="inline-flex h-11 items-center gap-2 rounded-full bg-paper px-4 text-sm font-bold text-ink ring-1 ring-line transition hover:bg-herb-50 active:scale-95"
+              >
+                <ShoppingBasket size={17} className="text-herb-600" /> Lista de compras
+              </button>
+              <button
+                onClick={() => setPlanOpen((o) => !o)}
+                aria-expanded={planOpen}
+                className="inline-flex h-11 items-center gap-2 rounded-full bg-paper px-4 text-sm font-bold text-ink ring-1 ring-line transition hover:bg-herb-50 active:scale-95"
+              >
+                <CalendarPlus size={17} className="text-herb-600" /> Planear
+              </button>
+              {planOpen && (
+                <div className="animate-fade-up absolute left-0 top-full z-20 mt-2 w-60 rounded-2xl bg-paper p-2 shadow-lift ring-1 ring-line">
+                  <p className="px-3 pb-1 pt-1 text-[11px] font-bold uppercase tracking-wider text-muted">Adicionar ao plano</p>
+                  {DAYS.map((d, i) => (
+                    <button
+                      key={d}
+                      onClick={() => {
+                        planApi.add(i, recipe.slug, sv.count)
+                        setPlanOpen(false)
+                        toast(`Adicionado a ${d.toLowerCase()} (${sv.label})`)
+                      }}
+                      className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm font-semibold hover:bg-herb-50"
+                    >
+                      {d}
+                      {i === todayIndex() && <span className="text-[11px] font-bold text-herb-600">hoje</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
               {recipe.tags.map((t) => (
@@ -204,6 +262,32 @@ export function RecipePage() {
               colher de chá, q.b. = quanto baste.
             </p>
           </div>
+          {nut && (
+            <div className="mt-4 rounded-card bg-paper p-5 shadow-soft ring-1 ring-line/60 sm:p-6">
+              <h2 className="text-sm font-bold">Nutrição por dose</h2>
+              <div className="mt-3 grid grid-cols-4 gap-2 text-center">
+                {(
+                  [
+                    ['Energia', nut.kcal, ' kcal'],
+                    ['Proteína', nut.p, ' g'],
+                    ['Hidratos', nut.h, ' g'],
+                    ['Gordura', nut.g, ' g'],
+                  ] as [string, number, string][]
+                ).map(([label, v, unit]) => (
+                  <div key={label} className="rounded-xl bg-cream px-1 py-2.5">
+                    <p className="text-[15px] font-bold tabular-nums">
+                      {v}
+                      <span className="text-[11px] font-semibold text-muted">{unit}</span>
+                    </p>
+                    <p className="text-[11px] text-muted">{label}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-[11px] leading-relaxed text-muted">
+                Valores aproximados para uma dose da receita original. São uma referência, não um aconselhamento nutricional.
+              </p>
+            </div>
+          )}
         </aside>
 
         <section>

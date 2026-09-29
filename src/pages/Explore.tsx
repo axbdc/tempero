@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { Search, X } from 'lucide-react'
 import { categories, getCategory, normalize, recipes } from '../data'
 import { RecipeCard } from '../components/RecipeCard'
+import { FILTERS, recipeFlags, type FilterId } from '../lib/filters'
 
 const times = [
   { v: '', label: 'Qualquer tempo' },
@@ -16,6 +17,8 @@ export function Explore() {
   const q = params.get('q') ?? ''
   const cat = params.get('cat') ?? ''
   const tempo = params.get('tempo') ?? ''
+  const active = (params.get('f') ?? '').split(',').filter(Boolean) as FilterId[]
+  const activeKey = active.join(',')
 
   const set = (key: string, value: string) => {
     const next = new URLSearchParams(params)
@@ -29,13 +32,18 @@ export function Explore() {
     return recipes.filter((r) => {
       if (cat && r.category !== cat) return false
       if (tempo && r.totalMin > Number(tempo)) return false
+      if (active.length) {
+        const fl = recipeFlags(r)
+        if (!active.every((a) => fl.has(a))) return false
+      }
       if (!nq) return true
       const hay = normalize(
         [r.title, r.summary, ...r.tags, ...r.ingredients.flatMap((g) => g.items.map((i) => i.item))].join(' '),
       )
       return nq.split(/\s+/).every((w) => hay.includes(w))
     })
-  }, [q, cat, tempo])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, cat, tempo, activeKey])
 
   const current = getCategory(cat)
   const chip = (active: boolean) =>
@@ -92,6 +100,25 @@ export function Explore() {
             {t.label}
           </button>
         ))}
+      </div>
+
+      <div className="no-scrollbar -mx-4 mt-1 flex gap-2 overflow-x-auto px-4 py-2 sm:mx-0 sm:flex-wrap sm:px-0">
+        {FILTERS.map((f) => {
+          const on = active.includes(f.id)
+          return (
+            <button
+              key={f.id}
+              aria-pressed={on}
+              onClick={() => set('f', (on ? active.filter((a) => a !== f.id) : [...active, f.id]).join(','))}
+              className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition active:scale-95 ${
+                on ? 'border-herb-600 bg-herb-50 text-herb-700' : 'border-line text-muted hover:text-ink'
+              }`}
+            >
+              {on ? '✓ ' : ''}
+              {f.label}
+            </button>
+          )
+        })}
       </div>
 
       <p className="mt-6 text-sm font-medium text-muted">

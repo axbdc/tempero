@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
-import { ArrowRight, Clock, Timer, Scale, ListChecks, ChefHat } from 'lucide-react'
+import { ArrowRight, CalendarDays, ChefHat, Clock, ListChecks, Refrigerator, Scale, ShoppingBasket, Timer } from 'lucide-react'
+import { InstallBanner } from '../components/InstallBanner'
 import { byCategory, categories, formatTime, getCategory, imageUrl, recipes, type CategoryId } from '../data'
 import { RecipeCard } from '../components/RecipeCard'
 import { FavoriteButton } from '../components/FavoriteButton'
@@ -59,7 +60,7 @@ export function Home() {
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
           <FavoriteButton slug={featured.slug} className="absolute right-4 top-4 h-11 w-11" size={20} />
           <div className="absolute inset-x-0 bottom-0 p-5 sm:p-10">
-            <span className="inline-flex items-center gap-2 rounded-full bg-saffron px-3 py-1 text-xs font-bold uppercase tracking-wide text-herb-900">
+            <span className="inline-flex items-center gap-2 rounded-full bg-saffron px-3 py-1 text-xs font-bold uppercase tracking-wide text-[#123a2a]">
               Sugestão para o {featuredCat.label.toLowerCase()}
             </span>
             <h2 className="mt-3 max-w-2xl font-display text-3xl font-semibold leading-tight text-white sm:text-5xl">
@@ -73,12 +74,39 @@ export function Home() {
               <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-sm font-medium text-white backdrop-blur">
                 <ChefHat size={15} /> {featured.difficulty}
               </span>
-              <span className="ml-auto hidden items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-bold text-herb-900 transition group-hover:gap-3 sm:inline-flex">
+              <span className="ml-auto hidden items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-bold text-[#123a2a] transition group-hover:gap-3 sm:inline-flex">
                 Ver receita <ArrowRight size={16} />
               </span>
             </div>
           </div>
         </Link>
+      </section>
+
+      {/* Ferramentas */}
+      <section className="reveal mx-auto mt-8 max-w-6xl px-4 sm:px-6">
+        <div className="grid gap-3 sm:grid-cols-3">
+          {[
+            { to: '/frigorifico', icon: Refrigerator, t: 'O que tenho no frigorífico?', d: 'Escolhe o que tens e vê o que dá para fazer.' },
+            { to: '/plano', icon: CalendarDays, t: 'Planear a semana', d: 'Receitas por dia e lista de compras automática.' },
+            { to: '/lista', icon: ShoppingBasket, t: 'Lista de compras', d: 'Ingredientes organizados por secção.' },
+          ].map(({ to, icon: Icon, t, d }) => (
+            <Link
+              key={to}
+              to={to}
+              className="group flex items-center gap-4 rounded-card bg-paper p-4 shadow-soft ring-1 ring-line/60 transition hover:-translate-y-0.5 hover:shadow-lift"
+            >
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-herb-50 text-herb-700 transition group-hover:scale-105">
+                <Icon size={22} />
+              </span>
+              <span className="min-w-0">
+                <span className="block font-bold">{t}</span>
+                <span className="block text-sm text-muted">{d}</span>
+              </span>
+              <ArrowRight size={18} className="ml-auto shrink-0 text-muted transition group-hover:translate-x-1" />
+            </Link>
+          ))}
+        </div>
+        <InstallBanner />
       </section>
 
       {/* Categorias */}
