@@ -5,14 +5,13 @@ export const almoco: Recipe[] = [
     slug: 'quiche-bacon-chourico',
     title: 'Quiche de bacon, chouriço e queijo',
     category: 'almoco',
-    summary: 'A quiche da casa: recheio cremoso com bacon, chouriço e muito queijo, em massa quebrada. Já testada e aprovada.',
+    summary: 'Recheio cremoso com bacon, chouriço e muito queijo, em massa quebrada. Perfeita para o almoço e ainda melhor no dia seguinte.',
     image: '1650844010413-3f24dc1c182b',
     credit: 'Taylor Walling',
     totalMin: 60,
     difficulty: 'Fácil',
     servings: '4-6 pessoas',
-    tags: ['forno', 'da casa', 'sobras'],
-    house: true,
+    tags: ['forno', 'sobras', 'clássico'],
     ingredients: [
       {
         items: [
@@ -229,14 +228,13 @@ export const jantar: Recipe[] = [
     slug: 'esparguete-natas-cogumelos',
     title: 'Esparguete com natas e cogumelos',
     category: 'jantar',
-    summary: 'Molho cremoso de cogumelos dourados, vinho branco e queijo, estilo ravioli. Da casa: ficou top.',
+    summary: 'Molho cremoso de cogumelos dourados, vinho branco e queijo. Pronto em 20 minutos, com ou sem atum.',
     image: '1597692493647-35763cb92183',
     credit: 'Jean-claude Attipoe',
     totalMin: 20,
     difficulty: 'Fácil',
     servings: '1 pessoa',
-    tags: ['massa', 'da casa', 'rápido'],
-    house: true,
+    tags: ['massa', 'rápido', 'cremoso'],
     ingredients: [
       {
         items: [

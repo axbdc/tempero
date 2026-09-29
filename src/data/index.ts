@@ -3,6 +3,7 @@ import { pequenoAlmoco, lanche } from './recipes-manha-lanche'
 import { almoco, jantar } from './recipes-almoco-jantar'
 import { petiscos } from './recipes-petiscos'
 import { photos } from './photos'
+import { maisPequenoAlmoco, maisLanche, maisAlmoco, maisJantar, maisPetiscos } from './recipes-mais'
 
 export * from './types'
 
@@ -15,7 +16,18 @@ export const categories: Category[] = [
 ]
 
 // As fotos vêm de photos.ts (sobrepõem o campo image/credit de cada receita)
-export const recipes: Recipe[] = [...pequenoAlmoco, ...lanche, ...almoco, ...jantar, ...petiscos].map((r) => ({
+export const recipes: Recipe[] = [
+  ...pequenoAlmoco,
+  ...maisPequenoAlmoco,
+  ...lanche,
+  ...maisLanche,
+  ...almoco,
+  ...maisAlmoco,
+  ...jantar,
+  ...maisJantar,
+  ...petiscos,
+  ...maisPetiscos,
+].map((r) => ({
   ...r,
   ...photos[r.slug],
 }))

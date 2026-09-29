@@ -7,10 +7,12 @@ import { RecipePage } from './pages/RecipePage'
 import { CookMode } from './pages/CookMode'
 import { Favorites } from './pages/Favorites'
 import { NotFound } from './pages/NotFound'
+import { Splash } from './components/Splash'
 
 export default function App() {
   return (
     <FavoritesProvider>
+      <Splash />
       <BrowserRouter>
         <Routes>
           <Route element={<Layout />}>

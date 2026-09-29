@@ -70,7 +70,7 @@ export function Explore() {
         )}
       </div>
 
-      <div className="no-scrollbar -mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
+      <div className="no-scrollbar -mx-4 mt-4 flex gap-2 overflow-x-auto px-4 py-2 sm:mx-0 sm:flex-wrap sm:px-0">
         <button className={chip(!cat)} onClick={() => set('cat', '')}>
           Todas
         </button>
@@ -80,7 +80,7 @@ export function Explore() {
           </button>
         ))}
       </div>
-      <div className="no-scrollbar -mx-4 mt-2 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
+      <div className="no-scrollbar -mx-4 mt-2 flex gap-2 overflow-x-auto px-4 py-2 sm:mx-0 sm:px-0">
         {times.map((t) => (
           <button
             key={t.v}

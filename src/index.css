@@ -88,6 +88,164 @@ body {
   animation: ring 0.8s ease infinite;
 }
 
+/* ---------- Splash ---------- */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--color-herb-700);
+  color: #fff;
+  clip-path: circle(150% at 50% 45%);
+  transition: clip-path 0.8s cubic-bezier(0.76, 0, 0.24, 1);
+}
+.splash-out {
+  clip-path: circle(0% at 50% 45%);
+}
+.splash-glow {
+  position: absolute;
+  width: 70vmax;
+  height: 70vmax;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(47 122 88 / 0.9) 0%, transparent 62%);
+  animation: sp-glow 2.4s ease-out both;
+}
+.splash-ring {
+  position: absolute;
+  width: 180px;
+  height: 180px;
+  margin-top: -64px;
+  border-radius: 50%;
+  border: 1.5px solid rgb(242 181 68 / 0.55);
+  animation: sp-ring 1.6s cubic-bezier(0.2, 0.7, 0.2, 1) 0.35s both;
+}
+.splash-mark {
+  position: relative;
+  width: 104px;
+  height: 104px;
+  overflow: visible;
+}
+.sp-bowl {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: sp-bowl 0.75s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
+}
+.sp-leaf1 {
+  transform-box: fill-box;
+  transform-origin: 0% 100%;
+  animation: sp-leaf 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.55s both;
+}
+.sp-leaf2 {
+  transform-box: fill-box;
+  transform-origin: 100% 100%;
+  animation: sp-leaf2 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.72s both;
+}
+.splash-word {
+  position: relative;
+  display: flex;
+  margin-top: 20px;
+  padding: 0 4px 8px;
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: 48px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.splash-word span {
+  display: inline-block;
+  animation: sp-letter 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.splash-tag {
+  position: relative;
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--color-herb-100);
+  animation: sp-fade 0.7s ease 1.45s both;
+}
+@keyframes sp-glow {
+  from { transform: scale(0.3); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+@keyframes sp-ring {
+  from { transform: scale(0.4); opacity: 0; }
+  60% { opacity: 1; }
+  to { transform: scale(1.35); opacity: 0; }
+}
+@keyframes sp-bowl {
+  from { transform: translateY(22px) scale(0.3); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes sp-leaf {
+  from { transform: rotate(-50deg) scale(0); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes sp-leaf2 {
+  from { transform: rotate(50deg) scale(0); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes sp-letter {
+  from { transform: translateY(115%); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes sp-fade {
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+/* ---------- Animações do site ---------- */
+.page-enter {
+  animation: page-in 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+@supports (animation-timeline: view()) {
+  .reveal {
+    animation: reveal linear both;
+    animation-timeline: view();
+    animation-range: entry 0% cover 20%;
+  }
+}
+@keyframes reveal {
+  from { opacity: 0; transform: translateY(32px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+.kenburns {
+  animation: kenburns 14s ease-out both;
+}
+@keyframes kenburns {
+  from { transform: scale(1.14); }
+  to { transform: scale(1); }
+}
+
+.heart-pop {
+  animation: heart-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes heart-pop {
+  0% { transform: scale(0.5); }
+  60% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+
+a,
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+button:active {
+  transition-duration: 0.1s;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

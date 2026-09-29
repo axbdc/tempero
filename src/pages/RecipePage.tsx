@@ -87,11 +87,6 @@ export function RecipePage() {
             >
               {cat.label}
             </Link>
-            {recipe.house && (
-              <span className="ml-2 rounded-full bg-saffron px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-herb-900">
-                Da casa
-              </span>
-            )}
             <h1 className="mt-2 font-display text-[2rem] font-semibold leading-[1.1] tracking-tight text-herb-900 sm:text-5xl">
               {recipe.title}
             </h1>

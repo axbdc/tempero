@@ -81,7 +81,7 @@ export function Layout() {
         </div>
       </header>
 
-      <main className="flex-1 pb-24 md:pb-0">
+      <main key={pathname} className="page-enter flex-1 pb-24 md:pb-0">
         <Outlet />
       </main>
 
@@ -93,12 +93,8 @@ export function Layout() {
               Receitas simples, passo a passo, com medidas de cozinha (chávenas e colheres) e temporizadores. Sem balança.
             </p>
           </div>
-          <p className="text-xs text-muted">
-            Fotografias via{' '}
-            <a className="underline hover:text-ink" href="https://unsplash.com" target="_blank" rel="noreferrer">
-              Unsplash
-            </a>
-            . © {new Date().getFullYear()} Tempero
+          <p className="text-sm font-medium text-muted">
+            Made by <span className="font-semibold text-herb-700">Alexandre Cosme</span>
           </p>
         </div>
       </footer>

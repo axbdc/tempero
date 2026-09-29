@@ -35,7 +35,6 @@ export function Home() {
   const featured = options[day % options.length]
   const featuredCat = getCategory(featured.category)!
   const quick = recipes.filter((r) => r.totalMin <= 15)
-  const house = recipes.filter((r) => r.house)
 
   return (
     <div>
@@ -54,7 +53,7 @@ export function Home() {
             <img
               src={imageUrl(featured.image, 1600, 900)}
               alt={featured.title}
-              className="h-full w-full object-cover opacity-90 transition duration-700 group-hover:scale-[1.03]"
+              className="kenburns h-full w-full object-cover opacity-90"
             />
           </div>
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
@@ -83,7 +82,7 @@ export function Home() {
       </section>
 
       {/* Categorias */}
-      <section className="mx-auto mt-12 max-w-6xl px-4 sm:px-6">
+      <section className="reveal mx-auto mt-12 max-w-6xl px-4 sm:px-6">
         <h2 className="text-xl font-bold tracking-tight">Categorias</h2>
         <div className="no-scrollbar -mx-4 mt-4 flex gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-5 sm:px-0">
           {categories.map((c) => (
@@ -103,46 +102,8 @@ export function Home() {
         </div>
       </section>
 
-      {/* Da casa */}
-      <section className="mx-auto mt-14 max-w-6xl px-4 sm:px-6">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-bold tracking-tight">Da casa</h2>
-            <p className="mt-1 text-sm text-muted">Já testadas e aprovadas cá em casa.</p>
-          </div>
-        </div>
-        <div className="mt-5 grid gap-5 sm:grid-cols-2">
-          {house.map((r) => (
-            <Link
-              key={r.slug}
-              to={`/receita/${r.slug}`}
-              className="group flex overflow-hidden rounded-card bg-paper shadow-soft ring-1 ring-line/60 transition hover:shadow-lift"
-            >
-              <div className="w-2/5 shrink-0 overflow-hidden">
-                <img
-                  src={imageUrl(r.image, 500, 500)}
-                  alt={r.title}
-                  loading="lazy"
-                  className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                />
-              </div>
-              <div className="flex flex-col justify-center p-5">
-                <span className="w-fit rounded-full bg-saffron-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-[#8a5a00]">
-                  {getCategory(r.category)?.label}
-                </span>
-                <h3 className="mt-2 font-display text-xl font-semibold leading-tight text-herb-900">{r.title}</h3>
-                <p className="mt-1.5 line-clamp-2 text-sm text-muted">{r.summary}</p>
-                <span className="mt-3 inline-flex items-center gap-1.5 text-sm font-bold text-herb-700">
-                  Cozinhar <ArrowRight size={15} className="transition group-hover:translate-x-1" />
-                </span>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
-
       {/* Rápidas */}
-      <section className="mx-auto mt-14 max-w-6xl px-4 sm:px-6">
+      <section className="reveal mx-auto mt-14 max-w-6xl px-4 sm:px-6">
         <div className="flex items-end justify-between gap-4">
           <div>
             <h2 className="text-xl font-bold tracking-tight">Em 15 minutos ou menos</h2>
@@ -162,7 +123,7 @@ export function Home() {
       </section>
 
       {/* Como funciona */}
-      <section className="mx-auto mt-14 max-w-6xl px-4 sm:px-6">
+      <section className="reveal mx-auto mt-14 max-w-6xl px-4 sm:px-6">
         <div className="grid gap-4 rounded-[28px] bg-herb-700 p-6 text-white sm:grid-cols-3 sm:p-10">
           {[
             { icon: Scale, t: 'Sem balança', d: 'Tudo medido em chávenas, colheres e copos de iogurte.' },
@@ -196,7 +157,7 @@ export function Home() {
           </div>
           <div className="no-scrollbar -mx-4 mt-5 flex snap-x gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:grid sm:grid-cols-3 sm:px-0 lg:grid-cols-4">
             {byCategory(c.id)
-              .slice(0, 4)
+              .slice(0, 8)
               .map((r) => (
                 <div key={r.slug} className="w-64 shrink-0 snap-start sm:w-auto">
                   <RecipeCard recipe={r} />

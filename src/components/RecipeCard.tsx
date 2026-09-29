@@ -8,7 +8,7 @@ export function RecipeCard({ recipe, compact = false }: { recipe: Recipe; compac
   return (
     <Link
       to={`/receita/${recipe.slug}`}
-      className="group block overflow-hidden rounded-card bg-paper shadow-soft ring-1 ring-line/60 transition duration-300 hover:-translate-y-0.5 hover:shadow-lift focus-visible:outline-2 focus-visible:outline-herb-500"
+      className="reveal group block overflow-hidden rounded-card bg-paper shadow-soft ring-1 ring-line/60 transition duration-300 hover:-translate-y-0.5 hover:shadow-lift focus-visible:outline-2 focus-visible:outline-herb-500"
     >
       <div className={`relative overflow-hidden bg-herb-50 ${compact ? 'aspect-[4/3]' : 'aspect-[5/4]'}`}>
         <img
@@ -18,11 +18,6 @@ export function RecipeCard({ recipe, compact = false }: { recipe: Recipe; compac
           className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
         />
         <FavoriteButton slug={recipe.slug} className="absolute right-3 top-3 h-9 w-9" size={17} />
-        {recipe.house && (
-          <span className="absolute left-3 top-3 rounded-full bg-saffron px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-herb-900">
-            Da casa
-          </span>
-        )}
       </div>
       <div className="p-4">
         <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-herb-600">{cat?.label}</p>
