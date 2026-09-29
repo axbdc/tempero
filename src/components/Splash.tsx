@@ -32,7 +32,9 @@ export function Splash() {
       window.clearTimeout(t2)
       document.body.style.overflow = ''
     }
-  }, [phase])
+    // Só corre na montagem: não depende de `phase`, senão o cleanup cancelava o fim da animação
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   if (phase === 'done') return null
 
