@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -23,6 +23,8 @@ import { nutrition } from '../data/nutrition'
 import { useShopping } from '../lib/shopping'
 import { DAYS, todayIndex, usePlan } from '../lib/plan'
 import { toast } from '../lib/toast'
+import { annotateSteps } from '../lib/stepAmounts'
+import { StepText } from '../components/StepText'
 
 export function formatStepTime(min: number) {
   if (min < 1) return `${Math.round(min * 60)} s`
@@ -41,6 +43,7 @@ export function RecipePage() {
   const [shared, setShared] = useState(false)
   const navigate = useNavigate()
   const sv = useServings(recipe)
+  const annotated = useMemo(() => (recipe ? annotateSteps(recipe, sv.factor) : []), [recipe, sv.factor])
   const shop = useShopping()
   const planApi = usePlan()
   const [planOpen, setPlanOpen] = useState(false)
@@ -303,7 +306,9 @@ export function RecipePage() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <h3 className="font-bold">{s.title}</h3>
-                  <p className="mt-1 text-[15px] leading-relaxed text-ink/85">{s.text}</p>
+                  <p className="mt-1 text-[15px] leading-relaxed text-ink/85">
+                    <StepText step={annotated[i]} />
+                  </p>
                   {(s.heat || s.minutes) && (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {s.minutes && (

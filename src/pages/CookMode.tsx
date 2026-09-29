@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -18,13 +18,26 @@ import {
   MicOff,
   Volume2,
   VolumeX,
+  Settings2,
 } from 'lucide-react'
 import { getRecipe, imageUrl } from '../data'
 import { formatClock, remainingOf, useTimers } from '../lib/timers'
 import { formatStepTime } from './RecipePage'
 import { NotFound } from './NotFound'
 import { ServingsStepper, useServings } from '../components/ServingsStepper'
-import { speak, stopSpeaking, useVoiceCommands } from '../lib/voice'
+import {
+  getRate,
+  getVoiceName,
+  setRate,
+  setVoiceName,
+  speak,
+  stopSpeaking,
+  useVoiceCommands,
+  useVoices,
+  voiceLabel,
+} from '../lib/voice'
+import { annotateSteps, stepToSpeech } from '../lib/stepAmounts'
+import { StepText } from '../components/StepText'
 
 function useWakeLock() {
   useEffect(() => {
@@ -80,23 +93,37 @@ export function CookMode() {
   }, [])
 
   const current = recipe && idx >= 0 && idx < recipe.steps.length ? recipe.steps[idx] : null
-  const [voiceOn, setVoiceOn] = useState(false)
+  const annotated = useMemo(() => (recipe ? annotateSteps(recipe, sv.factor) : []), [recipe, sv.factor])
   const [readOn, setReadOn] = useState(false)
+  const [voiceSheet, setVoiceSheet] = useState(false)
+  const voices = useVoices()
+  const [voiceName, setVoiceNameState] = useState(getVoiceName)
+  const [rate, setRateState] = useState(getRate)
+
+  const annotatedRef = useRef(annotated)
+  useEffect(() => {
+    annotatedRef.current = annotated
+  })
 
   const readStep = useCallback(() => {
     if (!recipe) return
     if (idx < 0) speak(`${recipe.title}. Antes de começar, junta os ingredientes na bancada.`)
-    else if (current) speak(`Passo ${idx + 1}. ${current.title}. ${current.text}`)
+    else if (current) speak(`Passo ${idx + 1}. ${current.title}. ${stepToSpeech(annotatedRef.current[idx])}`)
     else speak('Terminado. Bom apetite!')
   }, [recipe, idx, current])
 
+  // Lê automaticamente sempre que se muda de passo (a primeira leitura é feita no próprio clique)
+  const lastRead = useRef<unknown>(null)
   useEffect(() => {
-    if (readOn) readStep()
+    if (readOn && lastRead.current !== readStep) {
+      lastRead.current = readStep
+      readStep()
+    }
   }, [readOn, readStep])
 
   useEffect(() => () => stopSpeaking(), [])
 
-  const voice = useVoiceCommands(voiceOn, (cmd) => {
+  const voice = useVoiceCommands((cmd) => {
     if (cmd === 'next') go(1)
     else if (cmd === 'prev') go(-1)
     else if (cmd === 'repeat') readStep()
@@ -107,6 +134,10 @@ export function CookMode() {
   })
 
   if (!recipe) return <NotFound />
+
+  const voiceOn = voice.state !== 'off'
+  const toggleMic = () => (voiceOn ? voice.stop() : voice.start())
+  const currentVoice = voices.find((v) => v.name === voiceName) ?? voices[0]
 
   const step = idx >= 0 && idx < total ? recipe.steps[idx] : null
   const progress = ((idx + 1) / (total + 1)) * 100
@@ -185,18 +216,31 @@ export function CookMode() {
           </div>
           {voice.supported && (
             <button
-              onClick={() => setVoiceOn((v) => !v)}
+              onClick={toggleMic}
               aria-pressed={voiceOn}
               aria-label={voiceOn ? 'Desligar comandos de voz' : 'Ligar comandos de voz'}
               title="Comandos de voz"
-              className={`grid h-10 w-10 place-items-center rounded-full transition ${voiceOn ? 'bg-tomato text-white' : 'hover:bg-herb-50'}`}
+              className={`grid h-10 w-10 place-items-center rounded-full transition ${
+                voice.state === 'error' ? 'bg-saffron-50 text-[#8a5a00]' : voiceOn ? 'bg-tomato text-white' : 'hover:bg-herb-50'
+              }`}
             >
-              {voiceOn ? <Mic size={19} className="animate-pulse" /> : <MicOff size={19} />}
+              {voiceOn && voice.state !== 'error' ? (
+                <Mic size={19} className={voice.state === 'listening' ? 'animate-pulse' : ''} />
+              ) : (
+                <MicOff size={19} />
+              )}
             </button>
           )}
           <button
             onClick={() => {
-              if (readOn) stopSpeaking()
+              if (readOn) {
+                stopSpeaking()
+                lastRead.current = null
+              } else {
+                // Tem de arrancar dentro do clique: o Safari no iPhone não fala sem um toque do utilizador
+                lastRead.current = readStep
+                readStep()
+              }
               setReadOn(!readOn)
             }}
             aria-pressed={readOn}
@@ -206,6 +250,16 @@ export function CookMode() {
           >
             {readOn ? <Volume2 size={19} /> : <VolumeX size={19} />}
           </button>
+          {readOn && voices.length > 0 && (
+            <button
+              onClick={() => setVoiceSheet(true)}
+              aria-label="Escolher voz"
+              title="Escolher voz"
+              className="grid h-10 w-10 place-items-center rounded-full hover:bg-herb-50"
+            >
+              <Settings2 size={19} />
+            </button>
+          )}
           <button
             onClick={() => setShowIngredients(true)}
             className="inline-flex h-10 items-center gap-2 rounded-full bg-herb-50 px-4 text-sm font-bold text-herb-700 hover:bg-herb-100"
@@ -219,8 +273,26 @@ export function CookMode() {
       </header>
 
       {voiceOn && (
-        <div className="shrink-0 border-b border-line/70 bg-herb-50 px-4 py-2 text-center text-xs font-semibold text-herb-700">
-          {voice.listening ? 'A ouvir' : 'A ligar o microfone'}: diz "próximo", "anterior", "repetir", "temporizador", "pausa" ou "parar alarme"
+        <div
+          className={`shrink-0 border-b border-line/70 px-4 py-2 text-center text-xs font-semibold ${
+            voice.state === 'error' ? 'bg-saffron-50 text-[#8a5a00]' : 'bg-herb-50 text-herb-700'
+          }`}
+          role="status"
+        >
+          {voice.state === 'error' ? (
+            <>
+              {voice.error}{' '}
+              <button onClick={voice.start} className="ml-1 underline">
+                Tentar outra vez
+              </button>
+            </>
+          ) : (
+            <>
+              {voice.state === 'listening' ? 'A ouvir' : 'A ligar o microfone'}: diz "próximo", "anterior", "repetir", "temporizador",
+              "pausa" ou "parar alarme"
+              {voice.heard && <span className="mt-0.5 block font-normal italic opacity-80">Ouvi: "{voice.heard}"</span>}
+            </>
+          )}
         </div>
       )}
 
@@ -263,7 +335,7 @@ export function CookMode() {
               </div>
               {sv.factor !== 1 && (
                 <p className="mt-2 text-xs leading-relaxed text-herb-700">
-                  Receita original para {sv.baseLabel}. Os tempos mantêm-se; quantidades escritas nos passos referem-se ao original.
+                  Receita original para {sv.baseLabel}. As quantidades nos passos já estão ajustadas; os tempos mantêm-se.
                 </p>
               )}
               <p className="mt-6 text-muted">Marca cada ingrediente à medida que o tiras do armário.</p>
@@ -280,7 +352,9 @@ export function CookMode() {
                 <span className="text-sm font-semibold text-muted">de {total}</span>
               </div>
               <h1 className="mt-5 font-display text-3xl font-semibold leading-tight text-herb-900 sm:text-[2.6rem]">{step.title}</h1>
-              <p className="mt-4 text-xl leading-relaxed text-ink sm:text-2xl sm:leading-relaxed">{step.text}</p>
+              <p className="mt-4 text-xl leading-relaxed text-ink sm:text-2xl sm:leading-relaxed">
+                <StepText step={annotated[idx]} size="lg" />
+              </p>
 
               {step.heat && (
                 <p className="mt-6 inline-flex w-fit items-center gap-2 rounded-full bg-saffron-50 px-4 py-2 text-base font-bold text-[#8a5a00]">
@@ -416,6 +490,79 @@ export function CookMode() {
             </button>
           </div>
         </footer>
+      )}
+
+      {/* Escolher voz */}
+      {voiceSheet && (
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 sm:items-center" onClick={() => setVoiceSheet(false)}>
+          <div
+            className="animate-fade-up max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-t-[28px] bg-paper p-6 sm:rounded-[28px]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold">Voz da leitura</h2>
+              <button
+                onClick={() => setVoiceSheet(false)}
+                className="grid h-9 w-9 place-items-center rounded-full hover:bg-herb-50"
+                aria-label="Fechar"
+              >
+                <X size={19} />
+              </button>
+            </div>
+            <p className="mt-1 text-sm text-muted">
+              As vozes vêm do teu dispositivo. As marcadas como "natural" soam muito mais humanas.
+            </p>
+            <ul className="mt-4 space-y-1.5">
+              {voices.map((v) => {
+                const on = v.name === currentVoice?.name
+                return (
+                  <li key={v.name}>
+                    <button
+                      onClick={() => {
+                        setVoiceName(v.name)
+                        setVoiceNameState(v.name)
+                        speak('Olá! Vou ler-te os passos da receita.')
+                      }}
+                      className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm transition ${
+                        on ? 'bg-herb-700 font-bold text-white' : 'bg-cream hover:bg-herb-50'
+                      }`}
+                    >
+                      <Volume2 size={16} className="shrink-0" />
+                      <span className="flex-1">{voiceLabel(v)}</span>
+                      {on && <Check size={17} />}
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+            <p className="mt-5 text-sm font-bold">Ritmo</p>
+            <div className="mt-2 flex gap-2">
+              {[
+                [0.85, 'Mais devagar'],
+                [1, 'Normal'],
+                [1.12, 'Mais rápido'],
+              ].map(([r, label]) => (
+                <button
+                  key={label}
+                  onClick={() => {
+                    setRate(r as number)
+                    setRateState(r as number)
+                    speak('Assim está bom?')
+                  }}
+                  className={`flex-1 rounded-full px-3 py-2 text-sm font-bold transition ${
+                    rate === r ? 'bg-herb-700 text-white' : 'bg-cream hover:bg-herb-50'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-5 text-xs leading-relaxed text-muted">
+              Dica: no computador, o Microsoft Edge tem as vozes mais naturais em português de Portugal (Raquel e Duarte). No
+              iPhone, em Definições &gt; Acessibilidade &gt; Conteúdo falado &gt; Vozes, podes descarregar a voz "Joana (melhorada)".
+            </p>
+          </div>
+        </div>
       )}
 
       {/* Folha de ingredientes */}

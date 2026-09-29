@@ -102,7 +102,9 @@ const NUM = /(~)?(\d+\/\d+|\d+(?:,\d+)?)(?:-(\d+(?:,\d+)?))?/g
 export function scaleIngredient(ing: Ingredient, factor: number): Ingredient {
   if (factor === 1 || !ing.qty || /^(q\.b\.|opcional)/i.test(ing.qty)) return ing
 
-  const integer = /ovo|gema/i.test(ing.item + ' ' + ing.qty)
+  // Ovos e contagens simples ("3" cenouras) arredondam a unidades inteiras a partir de 2
+  const bareCount = /^\d+$/.test(ing.qty.trim()) && Number(ing.qty) * factor >= 1.75
+  const integer = /ovo|gema/i.test(ing.item + ' ' + ing.qty) || bareCount
   const bigUnit = /\b(g|ml|cm)\b/i.test(ing.qty)
   let first: number | null = null
   let firstScaled: number | null = null
