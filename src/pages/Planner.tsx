@@ -58,7 +58,7 @@ export function Planner() {
         </div>
       </div>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {plan.plan.map((entries, day) => (
           <section
             key={day}
@@ -97,15 +97,24 @@ export function Planner() {
                     key={e.id}
                     draggable
                     onDragStart={(ev) => ev.dataTransfer.setData('text/plain', JSON.stringify({ from: day, id: e.id }))}
-                    className="animate-fade-up group flex items-center gap-2 rounded-2xl bg-cream p-2"
+                    className="animate-fade-up group flex gap-2.5 rounded-2xl bg-cream p-2"
                   >
-                    <GripVertical size={15} className="hidden shrink-0 cursor-grab text-muted sm:block" />
-                    <img src={imageUrl(r.image, 120, 120)} alt="" className="h-11 w-11 shrink-0 rounded-xl object-cover" />
+                    <GripVertical size={15} className="hidden shrink-0 cursor-grab self-center text-muted sm:block" />
+                    <img src={imageUrl(r.image, 120, 120)} alt="" className="h-14 w-14 shrink-0 rounded-xl object-cover" />
                     <div className="min-w-0 flex-1">
-                      <Link to={`/receita/${r.slug}?doses=${e.doses}`} className="block truncate text-sm font-bold hover:underline">
-                        {r.title}
-                      </Link>
-                      <div className="mt-1 flex items-center gap-1.5">
+                      <div className="flex items-start gap-1">
+                        <Link to={`/receita/${r.slug}?doses=${e.doses}`} className="line-clamp-2 flex-1 text-sm font-bold leading-snug hover:underline">
+                          {r.title}
+                        </Link>
+                        <button
+                          onClick={() => plan.remove(day, e.id)}
+                          className="-mr-1 -mt-1 grid h-7 w-7 shrink-0 place-items-center rounded-full text-muted hover:bg-paper hover:text-ink"
+                          aria-label="Remover"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                      <div className="mt-1.5 flex items-center gap-1.5">
                         <button
                           onClick={() => plan.setDoses(day, e.id, e.doses - 1)}
                           className="grid h-6 w-6 place-items-center rounded-full bg-paper text-herb-700 ring-1 ring-line"
@@ -113,7 +122,7 @@ export function Planner() {
                         >
                           <Minus size={12} />
                         </button>
-                        <span className="min-w-[4.5rem] text-center text-xs font-semibold tabular-nums">
+                        <span className="min-w-[3.8rem] text-center text-xs font-semibold tabular-nums">
                           {e.doses} {e.doses === 1 ? 'dose' : 'doses'}
                         </span>
                         <button
@@ -137,13 +146,6 @@ export function Planner() {
                         </select>
                       </div>
                     </div>
-                    <button
-                      onClick={() => plan.remove(day, e.id)}
-                      className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-muted hover:bg-paper hover:text-ink"
-                      aria-label="Remover"
-                    >
-                      <X size={15} />
-                    </button>
                   </li>
                 )
               })}
