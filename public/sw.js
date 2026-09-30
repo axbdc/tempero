@@ -1,6 +1,7 @@
 /* Tempero: service worker para funcionar sem internet */
-const VERSION = 'tempero-v2'
+const VERSION = 'tempero-v3'
 const IMAGES = 'tempero-img'
+const VOICE = 'tempero-voz'
 const SHELL = ['/', '/index.html', '/favicon.svg', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png']
 
 self.addEventListener('install', (event) => {
@@ -16,7 +17,7 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== VERSION && k !== IMAGES).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => k !== VERSION && k !== IMAGES && k !== VOICE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   )
 })
@@ -48,6 +49,23 @@ self.addEventListener('fetch', (event) => {
         if (hit) return hit
         const res = await fetch(req)
         if (res.ok || res.type === 'opaque') c.put(req, res.clone())
+        return res
+      }),
+    )
+    return
+  }
+
+  // Motor da voz (WebAssembly): cache primeiro, para a leitura funcionar sem internet
+  if (
+    (url.hostname === 'cdnjs.cloudflare.com' && url.pathname.includes('/onnxruntime-web/')) ||
+    (url.hostname === 'cdn.jsdelivr.net' && url.pathname.includes('/piper-wasm'))
+  ) {
+    event.respondWith(
+      caches.open(VOICE).then(async (c) => {
+        const hit = await c.match(req)
+        if (hit) return hit
+        const res = await fetch(req)
+        if (res.ok) c.put(req, res.clone())
         return res
       }),
     )

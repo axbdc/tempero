@@ -4,108 +4,161 @@ import { normalize } from '../data'
 export type VoiceCommand = 'next' | 'prev' | 'repeat' | 'timer' | 'pause' | 'stop' | 'ingredients'
 
 /* ------------------------------------------------------------------ */
-/* Leitura em voz alta                                                 */
+/* Leitura em voz alta: voz Piper (pt-PT) gerada no próprio dispositivo */
 /* ------------------------------------------------------------------ */
 
-const VOICE_KEY = 'tempero:voz'
-const RATE_KEY = 'tempero:voz-ritmo'
+export type VoiceModelState = 'checking' | 'missing' | 'downloading' | 'ready' | 'error'
 
-const synth = () => (typeof window !== 'undefined' ? window.speechSynthesis : undefined)
-
-function read(key: string) {
-  try {
-    return localStorage.getItem(key)
-  } catch {
-    return null
-  }
-}
-function write(key: string, v: string) {
-  try {
-    localStorage.setItem(key, v)
-  } catch {
-    /* sem armazenamento */
-  }
+interface VoiceStore {
+  model: VoiceModelState
+  progress: number // 0-1 durante a transferência
+  error: string
+  busy: 'idle' | 'preparing' | 'playing'
 }
 
-/** Pontua uma voz: vozes neurais/naturais e português de Portugal primeiro. */
-function voiceScore(v: SpeechSynthesisVoice) {
-  const lang = v.lang.replace('_', '-').toLowerCase()
-  const name = v.name.toLowerCase()
-  let s = 0
-  if (lang === 'pt-pt') s += 50
-  else if (lang === 'pt-br') s += 20
-  else if (lang.startsWith('pt')) s += 10
-  if (/natural|neural|online/.test(name)) s += 40
-  if (/premium|enhanced|melhorad|aperfei/.test(name)) s += 35
-  if (/google/.test(name)) s += 25
-  if (/joana|catarina|raquel|duarte|fernanda/.test(name)) s += 5
-  if (/compact|eloquence|espeak/.test(name)) s -= 30
-  return s
+let store: VoiceStore = { model: 'checking', progress: 0, error: '', busy: 'idle' }
+const listeners = new Set<() => void>()
+const setStore = (patch: Partial<VoiceStore>) => {
+  store = { ...store, ...patch }
+  listeners.forEach((l) => l())
 }
 
-let voiceCache: SpeechSynthesisVoice[] = []
-const voiceListeners = new Set<() => void>()
-
-function refreshVoices() {
-  const s = synth()
-  if (!s) return
-  voiceCache = s
-    .getVoices()
-    .filter((v) => v.lang.toLowerCase().startsWith('pt'))
-    .sort((a, b) => voiceScore(b) - voiceScore(a))
-  voiceListeners.forEach((l) => l())
-}
-
-if (typeof window !== 'undefined' && window.speechSynthesis) {
-  refreshVoices()
-  window.speechSynthesis.addEventListener?.('voiceschanged', refreshVoices)
-}
-
-/** Vozes em português disponíveis neste dispositivo, da mais natural para a menos natural. */
-export function useVoices() {
+/** Estado da voz (transferência, erros, se está a falar). */
+export function useVoiceModel() {
   return useSyncExternalStore(
     (cb) => {
-      voiceListeners.add(cb)
-      return () => voiceListeners.delete(cb)
+      listeners.add(cb)
+      return () => listeners.delete(cb)
     },
-    () => voiceCache,
-    () => voiceCache,
+    () => store,
+    () => store,
   )
 }
 
-export function voiceLabel(v: SpeechSynthesisVoice) {
-  const lang = v.lang.replace('_', '-').toLowerCase()
-  const where = lang === 'pt-pt' ? 'Portugal' : lang === 'pt-br' ? 'Brasil' : v.lang
-  const name = v.name
-    .replace(/^Microsoft\s+/i, '')
-    .replace(/\s*-\s*Portuguese.*$/i, '')
-    .replace(/\s*\(Portuguese.*?\)/i, '')
-  const natural = voiceScore(v) >= 60 ? ' · natural' : ''
-  return `${name} (${where})${natural}`
+type Reply =
+  | { id: number; type: 'status'; ready: boolean }
+  | { id: number; type: 'progress'; url: string; loaded: number; total: number }
+  | { id: number; type: 'done' }
+  | { id: number; type: 'audio'; buf: ArrayBuffer }
+  | { id: number; type: 'skipped' }
+  | { id: number; type: 'error'; message: string }
+
+let worker: Worker | null = null
+let nextId = 1
+const pending = new Map<number, { resolve: (r: Reply) => void; onProgress?: (r: Reply) => void }>()
+
+function getWorker() {
+  if (!worker) {
+    worker = new Worker(new URL('./piper.worker.ts', import.meta.url), { type: 'module' })
+    worker.onmessage = (e: MessageEvent<Reply>) => {
+      const r = e.data
+      const p = pending.get(r.id)
+      if (!p) return
+      if (r.type === 'progress') return p.onProgress?.(r)
+      pending.delete(r.id)
+      p.resolve(r)
+    }
+    worker.onerror = () => {
+      pending.forEach((p, id) => p.resolve({ id, type: 'error', message: 'worker' }))
+      pending.clear()
+      worker = null
+    }
+  }
+  return worker
 }
 
-export function getVoiceName() {
-  return read(VOICE_KEY) ?? ''
-}
-export function setVoiceName(name: string) {
-  write(VOICE_KEY, name)
-}
-/** Ritmo da leitura: 1 = normal, 0.85 = mais devagar */
-export function getRate() {
-  const r = Number(read(RATE_KEY))
-  return r > 0.5 && r < 1.5 ? r : 1
-}
-export function setRate(r: number) {
-  write(RATE_KEY, String(r))
+function call(msg: Record<string, unknown>, onProgress?: (r: Reply) => void) {
+  const id = nextId++
+  return new Promise<Reply>((resolve) => {
+    pending.set(id, { resolve, onProgress })
+    getWorker().postMessage({ ...msg, id })
+  })
 }
 
-function pickVoice() {
-  if (!voiceCache.length) refreshVoices()
-  const wanted = getVoiceName()
-  return voiceCache.find((v) => v.name === wanted) ?? voiceCache[0]
+export const voiceSupported = () =>
+  typeof window !== 'undefined' && typeof Worker !== 'undefined' && typeof WebAssembly !== 'undefined' && !!window.AudioContext
+
+let checked = false
+/** Vê se a voz já foi descarregada neste dispositivo. */
+export function checkVoice() {
+  if (checked) return
+  checked = true
+  if (!voiceSupported()) return setStore({ model: 'error', error: 'Este browser não consegue gerar a voz. Atualiza-o ou usa o Chrome, o Edge ou o Safari.' })
+  void call({ type: 'status' }).then((r) => {
+    if (r.type === 'status') setStore({ model: r.ready ? 'ready' : 'missing' })
+    else setStore({ model: 'missing' })
+  })
 }
 
-/** Parte o texto em frases curtas: soa mais natural e evita o corte do Chrome em textos longos. */
+/** Descarrega a voz (cerca de 60 MB, só da primeira vez). */
+export async function downloadVoice() {
+  if (store.model === 'downloading') return false
+  setStore({ model: 'downloading', progress: 0, error: '' })
+  const files = new Map<string, { loaded: number; total: number }>()
+  const r = await call({ type: 'download' }, (p) => {
+    if (p.type !== 'progress' || !p.total) return
+    files.set(p.url, { loaded: p.loaded, total: p.total })
+    let loaded = 0
+    let total = 0
+    files.forEach((f) => {
+      loaded += f.loaded
+      total += f.total
+    })
+    // O modelo é o ficheiro grande; antes de ele começar, o total ainda é pequeno
+    const big = [...files.values()].some((f) => f.total > 1e6)
+    setStore({ progress: big ? loaded / total : 0 })
+  })
+  if (r.type === 'done') {
+    setStore({ model: 'ready', progress: 1 })
+    return true
+  }
+  setStore({
+    model: 'error',
+    error: 'Não consegui descarregar a voz. Verifica a internet e tenta outra vez.',
+  })
+  return false
+}
+
+/* Áudio: um AudioContext desbloqueado num toque serve para o resto da sessão (iPhone incluído) */
+let audio: AudioContext | null = null
+let current: AudioBufferSourceNode | null = null
+
+/** Chamar dentro de um clique antes da primeira leitura. */
+export function unlockAudio() {
+  try {
+    audio ??= new AudioContext()
+    if (audio.state === 'suspended') void audio.resume()
+    const b = audio.createBuffer(1, 1, 22050)
+    const s = audio.createBufferSource()
+    s.buffer = b
+    s.connect(audio.destination)
+    s.start(0)
+  } catch {
+    /* sem áudio */
+  }
+}
+
+function play(buf: ArrayBuffer) {
+  return new Promise<void>((resolve) => {
+    if (!audio) return resolve()
+    audio
+      .decodeAudioData(buf)
+      .then((decoded) => {
+        const src = audio!.createBufferSource()
+        src.buffer = decoded
+        src.connect(audio!.destination)
+        src.onended = () => {
+          if (current === src) current = null
+          resolve()
+        }
+        current = src
+        src.start()
+      })
+      .catch(() => resolve())
+  })
+}
+
+/** Parte o texto em frases: a primeira começa a tocar enquanto a seguinte é gerada. */
 function chunks(text: string) {
   const parts = text
     .replace(/\s+/g, ' ')
@@ -114,7 +167,7 @@ function chunks(text: string) {
     .filter(Boolean)
   const out: string[] = []
   for (const p of parts) {
-    if (p.length <= 180) out.push(p)
+    if (p.length <= 160) out.push(p)
     else out.push(...p.split(/(?<=,)\s+/))
   }
   return out
@@ -123,67 +176,60 @@ function chunks(text: string) {
 let speaking = false
 let spokeUntil = 0
 let speakToken = 0
-let keepAlive: ReturnType<typeof setInterval> | undefined
 
 export const isSpeaking = () => speaking
 /** Ainda a falar ou acabou há muito pouco (o microfone pode apanhar o fim da frase). */
 const recentlySpoke = () => speaking || Date.now() - spokeUntil < 800
 
+/** Lê o texto com a voz Piper. Devolve false se a voz ainda não estiver descarregada. */
 export function speak(text: string, onDone?: () => void) {
-  const s = synth()
-  if (!s) return
-  try {
-    s.cancel()
-    const token = ++speakToken
-    const voice = pickVoice()
-    const natural = voice ? voiceScore(voice) >= 60 : false
-    // Vozes "robóticas" soam melhor um pouco mais lentas; as naturais ficam no ritmo delas
-    const rate = getRate() * (natural ? 1 : 0.93)
-    const list = chunks(text)
-    speaking = true
-    list.forEach((part, i) => {
-      const u = new SpeechSynthesisUtterance(part)
-      u.lang = voice?.lang ?? 'pt-PT'
-      if (voice) u.voice = voice
-      u.rate = rate
-      u.pitch = 1
-      if (i === list.length - 1) {
-        u.onend = () => {
-          if (token !== speakToken) return
-          speaking = false
-          spokeUntil = Date.now()
-          clearInterval(keepAlive)
-          onDone?.()
-        }
+  stopSpeaking()
+  if (store.model !== 'ready') return false
+  unlockAudio()
+  const token = ++speakToken
+  const parts = chunks(text)
+  if (!parts.length) return true
+  speaking = true
+  setStore({ busy: 'preparing' })
+
+  const synth = (t: string) => call({ type: 'speak', text: t, gen: token })
+
+  void (async () => {
+    let next = synth(parts[0])
+    for (let i = 0; i < parts.length; i++) {
+      const r = await next
+      if (token !== speakToken) return
+      if (i + 1 < parts.length) next = synth(parts[i + 1])
+      if (r.type === 'error') {
+        setStore({ error: 'A voz falhou a gerar esta frase.' })
+        continue
       }
-      u.onerror = () => {
-        if (token !== speakToken) return
-        speaking = false
-        clearInterval(keepAlive)
-      }
-      s.speak(u)
-    })
-    // O Chrome em desktop pára a leitura ao fim de ~15 s se não for "acordado"
-    clearInterval(keepAlive)
-    keepAlive = setInterval(() => {
-      if (!s.speaking) return clearInterval(keepAlive)
-      s.pause()
-      s.resume()
-    }, 10000)
-  } catch {
+      if (r.type !== 'audio') continue
+      setStore({ busy: 'playing' })
+      await play(r.buf)
+      if (token !== speakToken) return
+    }
     speaking = false
-  }
+    spokeUntil = Date.now()
+    setStore({ busy: 'idle' })
+    onDone?.()
+  })()
+  return true
 }
 
 export function stopSpeaking() {
+  const was = speaking
   speakToken++
   speaking = false
-  clearInterval(keepAlive)
+  if (was) spokeUntil = Date.now()
+  if (worker) worker.postMessage({ type: 'cancel', gen: speakToken, id: 0 })
   try {
-    synth()?.cancel()
+    current?.stop()
   } catch {
-    /* ignorar */
+    /* já tinha parado */
   }
+  current = null
+  if (store.busy !== 'idle') setStore({ busy: 'idle' })
 }
 
 /* ------------------------------------------------------------------ */

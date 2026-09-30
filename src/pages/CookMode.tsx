@@ -26,15 +26,13 @@ import { formatStepTime } from './RecipePage'
 import { NotFound } from './NotFound'
 import { ServingsStepper, useServings } from '../components/ServingsStepper'
 import {
-  getRate,
-  getVoiceName,
-  setRate,
-  setVoiceName,
+  checkVoice,
+  downloadVoice,
   speak,
   stopSpeaking,
+  unlockAudio,
   useVoiceCommands,
-  useVoices,
-  voiceLabel,
+  useVoiceModel,
 } from '../lib/voice'
 import { annotateSteps, stepToSpeech } from '../lib/stepAmounts'
 import { StepText } from '../components/StepText'
@@ -96,9 +94,8 @@ export function CookMode() {
   const annotated = useMemo(() => (recipe ? annotateSteps(recipe, sv.factor) : []), [recipe, sv.factor])
   const [readOn, setReadOn] = useState(false)
   const [voiceSheet, setVoiceSheet] = useState(false)
-  const voices = useVoices()
-  const [voiceName, setVoiceNameState] = useState(getVoiceName)
-  const [rate, setRateState] = useState(getRate)
+  const model = useVoiceModel()
+  useEffect(() => checkVoice(), [])
 
   const annotatedRef = useRef(annotated)
   useEffect(() => {
@@ -137,7 +134,13 @@ export function CookMode() {
 
   const voiceOn = voice.state !== 'off'
   const toggleMic = () => (voiceOn ? voice.stop() : voice.start())
-  const currentVoice = voices.find((v) => v.name === voiceName) ?? voices[0]
+  const startReading = () => {
+    // Tem de arrancar dentro do clique: o Safari no iPhone não toca som sem um toque do utilizador
+    unlockAudio()
+    lastRead.current = readStep
+    readStep()
+    setReadOn(true)
+  }
 
   const step = idx >= 0 && idx < total ? recipe.steps[idx] : null
   const progress = ((idx + 1) / (total + 1)) * 100
@@ -236,25 +239,30 @@ export function CookMode() {
               if (readOn) {
                 stopSpeaking()
                 lastRead.current = null
+                setReadOn(false)
+              } else if (model.model === 'ready') {
+                startReading()
               } else {
-                // Tem de arrancar dentro do clique: o Safari no iPhone não fala sem um toque do utilizador
-                lastRead.current = readStep
-                readStep()
+                unlockAudio()
+                setVoiceSheet(true)
               }
-              setReadOn(!readOn)
             }}
             aria-pressed={readOn}
             aria-label={readOn ? 'Parar leitura em voz alta' : 'Ler os passos em voz alta'}
             title="Ler em voz alta"
             className={`grid h-10 w-10 place-items-center rounded-full transition ${readOn ? 'bg-herb-700 text-white' : 'hover:bg-herb-50'}`}
           >
-            {readOn ? <Volume2 size={19} /> : <VolumeX size={19} />}
+            {readOn ? (
+              <Volume2 size={19} className={model.busy === 'preparing' ? 'animate-pulse' : ''} />
+            ) : (
+              <VolumeX size={19} />
+            )}
           </button>
-          {readOn && voices.length > 0 && (
+          {readOn && (
             <button
               onClick={() => setVoiceSheet(true)}
-              aria-label="Escolher voz"
-              title="Escolher voz"
+              aria-label="Definições da voz"
+              title="Definições da voz"
               className="grid h-10 w-10 place-items-center rounded-full hover:bg-herb-50"
             >
               <Settings2 size={19} />
@@ -500,7 +508,7 @@ export function CookMode() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold">Voz da leitura</h2>
+              <h2 className="text-lg font-bold">Leitura em voz alta</h2>
               <button
                 onClick={() => setVoiceSheet(false)}
                 className="grid h-9 w-9 place-items-center rounded-full hover:bg-herb-50"
@@ -509,58 +517,69 @@ export function CookMode() {
                 <X size={19} />
               </button>
             </div>
-            <p className="mt-1 text-sm text-muted">
-              As vozes vêm do teu dispositivo. As marcadas como "natural" soam muito mais humanas.
+            <p className="mt-2 text-sm leading-relaxed text-muted">
+              O Tempero usa uma voz em português de Portugal que funciona dentro do próprio site: sem contas e sem custos. É
+              descarregada uma vez (cerca de 60 MB) e fica guardada neste dispositivo. Se estiveres com dados móveis, faz isto no
+              Wi-Fi.
             </p>
-            <ul className="mt-4 space-y-1.5">
-              {voices.map((v) => {
-                const on = v.name === currentVoice?.name
-                return (
-                  <li key={v.name}>
-                    <button
-                      onClick={() => {
-                        setVoiceName(v.name)
-                        setVoiceNameState(v.name)
-                        speak('Olá! Vou ler-te os passos da receita.')
-                      }}
-                      className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm transition ${
-                        on ? 'bg-herb-700 font-bold text-white' : 'bg-cream hover:bg-herb-50'
-                      }`}
-                    >
-                      <Volume2 size={16} className="shrink-0" />
-                      <span className="flex-1">{voiceLabel(v)}</span>
-                      {on && <Check size={17} />}
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-            <p className="mt-5 text-sm font-bold">Ritmo</p>
-            <div className="mt-2 flex gap-2">
-              {[
-                [0.85, 'Mais devagar'],
-                [1, 'Normal'],
-                [1.12, 'Mais rápido'],
-              ].map(([r, label]) => (
+
+            {model.model === 'checking' && <p className="mt-5 text-sm font-semibold text-muted">A verificar…</p>}
+
+            {(model.model === 'missing' || model.model === 'error') && (
+              <>
+                {model.error && (
+                  <p className="mt-4 rounded-2xl bg-saffron-50 p-3 text-sm font-semibold text-[#8a5a00]">{model.error}</p>
+                )}
                 <button
-                  key={label}
-                  onClick={() => {
-                    setRate(r as number)
-                    setRateState(r as number)
-                    speak('Assim está bom?')
+                  onClick={async () => {
+                    unlockAudio()
+                    if (await downloadVoice()) {
+                      setVoiceSheet(false)
+                      startReading()
+                    }
                   }}
-                  className={`flex-1 rounded-full px-3 py-2 text-sm font-bold transition ${
-                    rate === r ? 'bg-herb-700 text-white' : 'bg-cream hover:bg-herb-50'
-                  }`}
+                  className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-herb-700 font-bold text-white hover:bg-herb-600"
                 >
-                  {label}
+                  <Volume2 size={18} /> {model.model === 'error' ? 'Tentar outra vez' : 'Descarregar a voz'}
                 </button>
-              ))}
-            </div>
-            <p className="mt-5 text-xs leading-relaxed text-muted">
-              Dica: no computador, o Microsoft Edge tem as vozes mais naturais em português de Portugal (Raquel e Duarte). No
-              iPhone, em Definições &gt; Acessibilidade &gt; Conteúdo falado &gt; Vozes, podes descarregar a voz "Joana (melhorada)".
-            </p>
+              </>
+            )}
+
+            {model.model === 'downloading' && (
+              <div className="mt-5">
+                <div className="flex justify-between text-sm font-semibold">
+                  <span>A descarregar a voz…</span>
+                  <span className="tabular-nums">{Math.round(model.progress * 100)}%</span>
+                </div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-line/60">
+                  <div
+                    className="h-full rounded-full bg-herb-500 transition-[width] duration-300"
+                    style={{ width: `${Math.max(3, model.progress * 100)}%` }}
+                  />
+                </div>
+                <p className="mt-2 text-xs text-muted">Podes deixar esta janela aberta. Quando acabar, a leitura começa sozinha.</p>
+              </div>
+            )}
+
+            {model.model === 'ready' && (
+              <div className="mt-5 flex flex-col gap-2">
+                <p className="flex items-center gap-2 text-sm font-bold text-herb-700">
+                  <Check size={17} /> Voz pronta neste dispositivo
+                </p>
+                <button
+                  onClick={() => {
+                    unlockAudio()
+                    speak('Olá! Eu vou ler-te os passos da receita. Diz próximo quando estiveres pronto.')
+                  }}
+                  className="flex h-11 items-center justify-center gap-2 rounded-full bg-cream font-bold hover:bg-herb-50"
+                >
+                  <Play size={16} /> Ouvir exemplo
+                </button>
+                {model.busy === 'preparing' && (
+                  <p className="text-center text-xs text-muted">A preparar a voz (da primeira vez demora uns segundos)…</p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
